@@ -13,4 +13,4 @@ CREATE table users_tables(
     -- last
     -- username
     -- passsword
-)
+);
