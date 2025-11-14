@@ -7,4 +7,11 @@ CREATE TABLE bigitemtotal (
 );
 
 
-CREATE TABLE
+CREATE table users_tables(
+    id SERIAL PRIMARY KEY,
+    admin_level 
+    -- first 
+    -- last
+    -- username
+    -- passsword
+);
