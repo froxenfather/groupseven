@@ -14,10 +14,4 @@ CREATE table users_tables(
     last_name VARCHAR(20),
     username VARCHAR(10) PRIMARY KEY,
     password VARCHAR(10) PRIMARY KEY
-)
-    admin_level 
-    -- first 
-    -- last
-    -- username
-    -- passsword
 );
