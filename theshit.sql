@@ -6,6 +6,7 @@ CREATE TABLE bigitemtotal (
     rating      DECIMAL(3,2)
 );
 
+
 CREATE table users_tables(
     id SERIAL PRIMARY KEY,
     admin_level INTEGER NOT NULL,
@@ -14,3 +15,9 @@ CREATE table users_tables(
     username VARCHAR(10) PRIMARY KEY,
     password VARCHAR(10) PRIMARY KEY
 )
+    admin_level 
+    -- first 
+    -- last
+    -- username
+    -- passsword
+);
