@@ -1,1 +1,1 @@
-print("Im out here GOONING")
+print("Fuck yoy")
