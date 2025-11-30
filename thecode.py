@@ -16,13 +16,13 @@ def get_connection():
 
 # ------------- USER HELPERS ------------- #
 
-def get_user_by_username(conn, username):
+def get_user_by_username(fratabase, username):
     """
     return ONE user by name.
     users_tables schema:
         id, admin_level, first_name, last_name, username, password
     """
-    with conn.cursor() as cur:
+    with fratabase.cursor() as cur:
         cur.execute(
             """
             SELECT id, admin_level, first_name, last_name, username, password
@@ -34,11 +34,11 @@ def get_user_by_username(conn, username):
         return cur.fetchone()
 
 
-def create_user(conn, first_name, last_name, username, password):
+def create_user(fratabase, first_name, last_name, username, password):
     """
     make a new user with admin level = 0 and minimal info.
     """
-    with conn.cursor() as cur:
+    with fratabase.cursor() as cur:
         cur.execute(
             """
             INSERT INTO users_tables (admin_level, first_name, last_name, username, password)
@@ -48,24 +48,81 @@ def create_user(conn, first_name, last_name, username, password):
             (0, first_name, last_name, username, password),
         )
         row = cur.fetchone()
-    conn.commit()
+    fratabase.commit()
     return row  
 
 # ------------- MODES ------------- #
 
-def shop_mode(user_row):
+def shop_mode(fratabase, user_row):
     user_id, admin_level, first_name, last_name, username, _ = user_row
     print(f"\nWelcome to the shop, {username}!")
-    print("w2orking on the shop now.\n")
+
+    while True:
+        print("\nWhat would you like to do?")
+        print("1) Search items by name (might_be)")
+        print("2) Purchase an item by exact name")
+        print("3) Settings")
+        print("4) Exit shop")
+
+        choice = input("Choose an option: ").strip()
+
+        if choice == "1":
+            term = input("Enter part of an item name to search: ").strip()
+            might_be(fratabase, term)
+        elif choice == "2":
+            item_name = input("Enter the exact item name to purchase: ").strip()
+            purchase(fratabase, user_row, item_name)
+        elif choice == "3":
+            print("Seeya.")
+            settings(fratabase, user_row)
+        elif choice == "4":
+            print("Seeya.")
+            break
+        else:
+            print("Invalid choice, try again.")
 
 
-def admin_panel(user_row):
+
+def admin_panel(conn, user_row):
     user_id, admin_level, first_name, last_name, username, _ = user_row
-    print(f"\nAdmin Control Panel - User: {username}")
-    print("workin on admin stuf now.\n")
+    print(f"\n=== Admin Control Panel (logged in as {username}) ===")
+
+    while True:
+        print("\nAdmin options:")
+        print("1) List all users")
+        print("2) Delete a user")
+        print("3) Change user admin level")
+        print("4) Rename a user")
+        print("5) Change user balance")
+        print("6) Change item price/quantity")
+        print("7) Refund a purchase")
+        print("8) Back to previous menu")
+
+        choice = input("Choose an option: ").strip()
+
+        if choice == "1":
+            admin_list_users(conn)
+        elif choice == "2":
+            admin_delete_user(conn)
+        elif choice == "3":
+            admin_change_admin_level(conn)
+        elif choice == "4":
+            admin_rename_user(conn)
+        elif choice == "5":
+            admin_change_balance(conn)
+        elif choice == "6":
+            admin_change_item_price_qty(conn)
+        elif choice == "7":
+            admin_refund_purchase(conn)
+        elif choice == "8":
+            print("Leaving admin panel.")
+            break
+        else:
+            print("Invalid choice, try again.")
 
 
-def handle_admin_user(user_row):
+
+def handle_admin_user(fratabase,user_row):
     """
     Show menu for admin (admin_level == 1).
     """
@@ -78,9 +135,9 @@ def handle_admin_user(user_row):
         choice = input("Choose an option: ").strip()
 
         if choice == "1":
-            shop_mode(user_row)
+            shop_mode(fratabase, user_row)
         elif choice == "2":
-            admin_panel(user_row)
+            admin_panel(fratabase, user_row)
         elif choice == "3":
             print("Aight.")
             break
@@ -114,16 +171,16 @@ def main():
                 last_name = input("Last Name: ").strip()
                 new_user = create_user(fratabase, first_name, last_name, username, password)
                 print(f"Account created successfully. Welcome, {username}!")
-                # new_user does not include the password, so fetch fresh row if needed
+                #grab this man
                 user_row = get_user_by_username(fratabase, username)
                 # Non-admin goes directly to shop
-                shop_mode(user_row)
+                shop_mode(fratabase, user_row)
             else:
                 print("No account created. Exiting.")
                 return
 
         else:
-            # User exists, check password
+            #user exists, check password
             db_user_id, db_admin_level, db_first, db_last, db_username, db_password = user_row
 
             if password != db_password:
@@ -133,7 +190,7 @@ def main():
             print(f"\nLogin successful. Welcome back, {db_username}!")
 
             if db_admin_level == 1:
-                handle_admin_user(user_row)
+                handle_admin_user(fratabase,user_row)
             else:
                 # Regular user
                 shop_mode(user_row)

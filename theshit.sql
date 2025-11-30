@@ -14,7 +14,8 @@ CREATE TABLE users_tables (
     first_name  VARCHAR(20),
     last_name   VARCHAR(20),
     username    VARCHAR(50)  NOT NULL UNIQUE,
-    password    VARCHAR(255) NOT NULL           
+    password    VARCHAR(255) NOT NULL      
+    balance DECIMAL(15,2) NOT NULL DEFAULT 100.0 CHECK (bank_balance >= 0   )
 );
 
 CREATE TABLE purchases (
