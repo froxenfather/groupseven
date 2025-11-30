@@ -1,5 +1,10 @@
 import psycopg2
 
+
+
+
+#TODO: Fill in all the functions marked with TODO
+#TODO: Fulll the database somehow with items and such
 # ------------- DB CONNECTION ------------- #
 
 def get_connection():
@@ -16,16 +21,17 @@ def get_connection():
 
 # ------------- USER HELPERS ------------- #
 
-def get_user_by_username(fratabase, username):
+def get_unc(fratabase, username):
     """
+    tester function
     return ONE user by name.
     users_tables schema:
-        id, admin_level, first_name, last_name, username, password
+        id, admin_level, first_name, last_name, username, password, balance
     """
     with fratabase.cursor() as cur:
         cur.execute(
             """
-            SELECT id, admin_level, first_name, last_name, username, password
+            SELECT id, admin_level, first_name, last_name, username, password, balance
             FROM users_tables
             WHERE username = %s;
             """,
@@ -36,32 +42,247 @@ def get_user_by_username(fratabase, username):
 
 def create_user(fratabase, first_name, last_name, username, password):
     """
-    make a new user with admin level = 0 and minimal info.
+    make a new user with admin level = 0 and whatnot
     """
     with fratabase.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO users_tables (admin_level, first_name, last_name, username, password)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, admin_level, first_name, last_name, username;
+            INSERT INTO users_tables (admin_level, first_name, last_name, username, password, balance)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, admin_level, first_name, last_name, username, balance;
             """,
-            (0, first_name, last_name, username, password),
+            (0, first_name, last_name, username, password, 100),
         )
         row = cur.fetchone()
     fratabase.commit()
     return row  
 
-# ------------- MODES ------------- #
+# ------------------------------------------------------------- PURCHASE FRENGINE --------------------------------------------------------------- #
+def purchase(fratabase, user_row, item_name):
+    """
+      Purchase flow:
+    - find all items with this exact name
+    - show cheapest, most expensive, highest rated
+    - let user pick 1/2/3 or 4 for all others
+    - ask for quantity
+    - check stock and user balance
+    - insert into purchases, update stock, subtract from user
+    """
+
+    #TODO: Implement purchase function: this one is big
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+
+    raise NotImplementedError
+
+# ------------------------------------------------------------- SEARCH FRENGINE --------------------------------------------------------------- #
+def might_be(fratabase, term):
+    """  
+    Find all items with names similar to search_term and print a nice list.
+    Returns the list of rows.
+    1) Use SQL LIKE with %term% to find similar names
+    2) Print a numbered list of results with name, price, quantity, avg rating"""
+    #TODO: Implement might_be function
+    raise NotImplementedError
+
+# ------------------------------------------------------------- REFUND FRENGINE --------------------------------------------------------------- #
+def refund(fratabase, user_row):
+
+    """
+    Global refund engine.
+
+    Takes:
+        fratabase: psycopg2 connection
+        user_row: (id, admin_level, first_name, last_name, username, password, balance)
+
+    Shows that user's purchases, asks which purchase_id to refund,
+    and performs: balance +, stock +, delete purchase row. then ads the balance back to user
+    """
+     
+
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+
+    with fratabase.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.purchase_id, p.item_id, b.item_name,
+                    p.quantity, p.final_price, p.purchased_at
+                FROM purchases p
+                JOIN bigitemtotal b ON p.item_id = b.item_id
+                WHERE p.user_id = %s
+                ORDER BY p.purchased_at DESC;
+                """,
+                (user_id,),
+            )
+            rows = cur.fetchall()
+
+            #TODO: Finish this function to show purchases and process refunds
+     
+def user_refund(fratabase, user_row):
+    """
+    Logged-in user refunds one of THEIR purchases.
+    Just calls the global refund engine.
+    """
+    refund(fratabase, user_row)
+
+def admin_refund(fratabase):
+    try:
+        user_id = int(input("Enter user ID to refund purchases for: ").strip())
+    except ValueError:
+        print("Invalid ID.")
+        return
+
+    with fratabase.cursor() as cur:
+        cur.execute("""
+            SELECT id, admin_level, first_name, last_name, username, password
+            FROM users_tables
+            WHERE id = %s;
+        """, (user_id,))
+        user_row = cur.fetchone()
+
+    if user_row is None:
+        print("No such user.")
+        return
+
+    refund(fratabase, user_row)
+
+
+
+# ------------------------------------------------------------- SETTINGS --------------------------------------------------------------- #
+def settings(fratabase, user_row): #done i think
+    #Show settings menu for changing username/password.
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+    print(f"\n=== Settings for {username} ===")
+
+    while True:
+        print("\nSettings options:")
+        print("1) Change username")
+        print("2) Change password")
+        print("3) Back")
+
+        choice = input("Choose an option: ").strip()
+
+        if choice == "1":
+            user_row = user_change_username(fratabase, user_row)
+        elif choice == "2":
+            user_change_password(fratabase, user_row)
+        elif choice == "3":
+            break
+        else:
+            print("Invalid choice, try again.")
+    return user_row
+
+
+def user_change_username(fratabase, user_row):
+    user_id, admin_level, first_name, last_name, old_username, _, balance = user_row
+    new_username = input("Enter new username: ").strip()
+    new_row = None
+
+    if not new_username:
+        print("Username cannot be empty.")
+        return
+
+    with fratabase.cursor() as cur:
+        try:
+            cur.execute(
+                "UPDATE users_tables SET username = %s WHERE id = %s;",
+                (new_username, user_id),
+            )
+        except psycopg2.Error as e:
+            fratabase.rollback()
+            print("Could not update username:", e)
+            return
+    fratabase.commit()
+    print(f"Username changed from '{old_username}' to '{new_username}'.")
+    # cant update in local tuple for this session pllease see not e below
+    #user_row[4] = new_username  #this one line right here sent me in a chasm because i forgot to update the fucking list so doing this wouldnt ACTUALLLYA update the username for the session and i was like
+    #today i will suck start a shiotgun fun fact tuples are immuatable so this line of code is actually invalid so we need to refectch this shit
+    with fratabase.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, admin_level, first_name, last_name, username, password
+            FROM users_tables
+            WHERE id = %s;
+            """,
+            (user_id,),
+        )
+        new_row = cur.fetchone()
+    return new_row if new_row is not None else user_row
+    # i am genuinely killing myself over this one line of code
+
+
+def user_change_password(fratabase, user_row):
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+
+    current = input("Enter current password: ").strip()
+    
+
+    if current != password:
+        print("Current password is incorrect.")
+        return
+    new1    = input("Enter new password: ").strip()
+    new2    = input("Confirm new password: ").strip()
+
+    if new1 != new2:
+        print("Passwords do not match.")
+        return
+
+    with fratabase.cursor() as cur:
+        cur.execute("SELECT password FROM users_tables WHERE id = %s;", (user_id,))
+        row = cur.fetchone()
+        if row is None:
+            print("User not found in database.")
+            return
+        if current != row[0]:
+            print("Current password is incorrect.")
+            return
+
+        cur.execute(
+            "UPDATE users_tables SET password = %s WHERE id = %s;",
+            (new1, user_id),
+        )
+    fratabase.commit()
+    print("Password updated.")
+    #call me john copy and paste
+
+
+
+
+
+# ------------------------------------------------------------- MODES --------------------------------------------------------------- #
+
+def user_mode(fratabase, user_row):
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+    print(f"\nWelcome, {username}!")
+
+    while True:
+        print("\nWhat would you like to do?")
+        print("1) Shop")
+        print("2) Settings")
+        print("3) Exit shop")
+
+        choice = input("Choose an option: ").strip()
+
+        if choice == "1":
+            shop_mode(fratabase, user_row)
+        elif choice == "2":
+            print("Seeya.")
+            user_row =settings(fratabase, user_row)
+        elif choice == "3":
+            print("Seeya.")
+            break
+        else:
+            print("Invalid choice, try again.")
+
 
 def shop_mode(fratabase, user_row):
-    user_id, admin_level, first_name, last_name, username, _ = user_row
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
     print(f"\nWelcome to the shop, {username}!")
 
     while True:
         print("\nWhat would you like to do?")
         print("1) Search items by name (might_be)")
         print("2) Purchase an item by exact name")
-        print("3) Settings")
+        print("3) Refund an item")
         print("4) Exit shop")
 
         choice = input("Choose an option: ").strip()
@@ -73,8 +294,7 @@ def shop_mode(fratabase, user_row):
             item_name = input("Enter the exact item name to purchase: ").strip()
             purchase(fratabase, user_row, item_name)
         elif choice == "3":
-            print("Seeya.")
-            settings(fratabase, user_row)
+            user_refund(fratabase, user_row)
         elif choice == "4":
             print("Seeya.")
             break
@@ -83,10 +303,13 @@ def shop_mode(fratabase, user_row):
 
 
 
-def admin_panel(conn, user_row):
-    user_id, admin_level, first_name, last_name, username, _ = user_row
+def admin_panel(fratabase, user_row):
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
     print(f"\n=== Admin Control Panel (logged in as {username}) ===")
 
+
+    #TODO: Implement admin functions below
+    raise NotImplementedError
     while True:
         print("\nAdmin options:")
         print("1) List all users")
@@ -101,27 +324,77 @@ def admin_panel(conn, user_row):
         choice = input("Choose an option: ").strip()
 
         if choice == "1":
-            admin_list_users(conn)
+            admin_list_users(fratabase)
         elif choice == "2":
-            admin_delete_user(conn)
+            admin_delete_user(fratabase)
         elif choice == "3":
-            admin_change_admin_level(conn)
+            admin_change_admin_level(fratabase)
         elif choice == "4":
-            admin_rename_user(conn)
+            admin_rename_user(fratabase)
         elif choice == "5":
-            admin_change_balance(conn)
+            admin_change_balance(fratabase)
         elif choice == "6":
-            admin_change_item_price_qty(conn)
+            admin_change_item_price_qty(fratabase)
         elif choice == "7":
-            admin_refund_purchase(conn)
+            admin_refund(fratabase)
         elif choice == "8":
             print("Leaving admin panel.")
             break
         else:
             print("Invalid choice, try again.")
 
+def big_button(conn):
+
+    #this shit is almosat directly copied forom this cool ass tempate online i found
+    choice = input("Print everything EXCEPT bigitemtotal? (Y/N): ").strip().lower()
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public';
+        """)
+        all_tables = [row[0] for row in cur.fetchall()]
+
+    # Tables without the forbidden one
+    tables_excluding_big = [t for t in all_tables if t.lower() != "bigitemtotal"]
+
+    # Decide which list to print
+    if choice == "y":
+        tables_to_print = tables_excluding_big
+    else:
+        tables_to_print = all_tables
+
+    if not tables_to_print:
+        print("\nNo tables to print.\n")
+        return
+
+    print("\n=== PRINTING TABLES ===\n")
+
+    with conn.cursor() as cur:
+        for table in tables_to_print:
+            print(f"\n--- TABLE: {table} ---")
+            try:
+                cur.execute(f"SELECT * FROM {table};")
+                rows = cur.fetchall()
+                colnames = [desc[0] for desc in cur.description]
+
+                # Header
+                print(" | ".join(colnames))
+                print("-" * (len(" | ".join(colnames)) + 5))
+
+                # Rows
+                if rows:
+                    for r in rows:
+                        print(" | ".join(str(x) for x in r))
+                else:
+                    print("(no rows)")
+
+            except Exception as e:
+                print(f"Failed to read {table}: {e}")
 
 
+# ------------- ADMIN FRENGINE "that one lady that goes how may i direct your call" ------------- #
 def handle_admin_user(fratabase,user_row):
     """
     Show menu for admin (admin_level == 1).
@@ -130,15 +403,19 @@ def handle_admin_user(fratabase,user_row):
         print("\nYou are an admin.")
         print("1) Shop")
         print("2) Admin Control Panel")
-        print("3) Exit")
+        print("3) Big Print Button")
+        print("4) Exit")
 
         choice = input("Choose an option: ").strip()
 
         if choice == "1":
-            shop_mode(fratabase, user_row)
+            user_mode(fratabase, user_row)
         elif choice == "2":
             admin_panel(fratabase, user_row)
         elif choice == "3":
+            print("BIG boy")
+            big_button(fratabase)
+        elif choice == "4":
             print("Aight.")
             break
         else:
@@ -157,7 +434,7 @@ def main():
     try:
         fratabase = get_connection()
 
-        user_row = get_user_by_username(fratabase, username)
+        user_row = get_unc(fratabase, username)
 
         if user_row is None:
             # user not found, pormpt to make one
@@ -172,16 +449,16 @@ def main():
                 new_user = create_user(fratabase, first_name, last_name, username, password)
                 print(f"Account created successfully. Welcome, {username}!")
                 #grab this man
-                user_row = get_user_by_username(fratabase, username)
+                user_row = get_unc(fratabase, username)
                 # Non-admin goes directly to shop
-                shop_mode(fratabase, user_row)
+                user_mode(fratabase, user_row)
             else:
                 print("No account created. Exiting.")
                 return
 
         else:
             #user exists, check password
-            db_user_id, db_admin_level, db_first, db_last, db_username, db_password = user_row
+            db_user_id, db_admin_level, db_first, db_last, db_username, db_password, db_balance = user_row
 
             if password != db_password:
                 print("\nIncorrect password. Access denied.")
@@ -193,7 +470,7 @@ def main():
                 handle_admin_user(fratabase,user_row)
             else:
                 # Regular user
-                shop_mode(user_row)
+                user_mode(user_row)
 
     except psycopg2.Error as e:
         print("Database error:", e)
