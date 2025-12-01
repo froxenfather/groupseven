@@ -82,6 +82,9 @@ def might_be(fratabase, term):
     1) Use SQL LIKE with %term% to find similar names
     2) Print a numbered list of results with name, price, quantity, avg rating"""
     #TODO: Implement might_be function
+    
+    search = f"%{term}%"
+
     raise NotImplementedError
 
 # ------------------------------------------------------------- REFUND FRENGINE --------------------------------------------------------------- #
