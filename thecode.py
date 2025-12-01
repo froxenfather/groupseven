@@ -1,3 +1,4 @@
+import sqlite3
 import psycopg2
 
 
@@ -8,16 +9,8 @@ import psycopg2
 # ------------- DB CONNECTION ------------- #
 
 def get_connection():
-    """
-    Update these values for your own database.
-    """
-    return psycopg2.connect(
-        dbname="project_final",
-        user="postgres",
-        password="Fratabase",
-        host="localhost",
-        port=5432,
-    )
+    return sqlite3.connect("fratabase.db")
+
 
 # ------------- USER HELPERS ------------- #
 
@@ -28,34 +21,36 @@ def get_unc(fratabase, username):
     users_tables schema:
         id, admin_level, first_name, last_name, username, password, balance
     """
-    with fratabase.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, admin_level, first_name, last_name, username, password, balance
-            FROM users_tables
-            WHERE username = %s;
-            """,
-            (username,),
-        )
-        return cur.fetchone()
+    cur = fratabase.cursor()
+    cur.execute(
+        """
+        SELECT id, admin_level, first_name, last_name, username, password, balance
+        FROM users_tables
+        WHERE username = ?;
+        """,
+        (username,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    return row
 
 
 def create_user(fratabase, first_name, last_name, username, password):
-    """
-    make a new user with admin level = 0 and whatnot
-    """
-    with fratabase.cursor() as cur:
-        cur.execute(
-            """
+    with fratabase:
+        cur = fratabase.cursor()
+        cur.execute("""
             INSERT INTO users_tables (admin_level, first_name, last_name, username, password, balance)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, admin_level, first_name, last_name, username, balance;
-            """,
-            (0, first_name, last_name, username, password, 100),
-        )
-        row = cur.fetchone()
-    fratabase.commit()
-    return row  
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, (0, first_name, last_name, username, password, 100))
+
+        user_id = cur.lastrowid
+
+        cur.execute("""
+            SELECT id, admin_level, first_name, last_name, username, password, balance
+            FROM users_tables
+            WHERE id = ?;
+        """, (user_id,))
+        return cur.fetchone() 
 
 # ------------------------------------------------------------- PURCHASE FRENGINE --------------------------------------------------------------- #
 def purchase(fratabase, user_row, item_name):
@@ -104,21 +99,22 @@ def refund(fratabase, user_row):
 
     user_id, admin_level, first_name, last_name, username, password, balance = user_row
 
-    with fratabase.cursor() as cur:
-            cur.execute(
-                """
-                SELECT p.purchase_id, p.item_id, b.item_name,
-                    p.quantity, p.final_price, p.purchased_at
-                FROM purchases p
-                JOIN bigitemtotal b ON p.item_id = b.item_id
-                WHERE p.user_id = %s
-                ORDER BY p.purchased_at DESC;
-                """,
-                (user_id,),
-            )
-            rows = cur.fetchall()
+    cur = fratabase.cursor()
+    cur.execute(
+        """
+        SELECT p.purchase_id, p.item_id, b.item_name,
+            p.quantity, p.final_price, p.purchased_at
+        FROM purchases p
+        JOIN bigitemtotal b ON p.item_id = b.item_id
+        WHERE p.user_id = ?
+        ORDER BY p.purchased_at DESC;
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+    cur.close()
 
-            #TODO: Finish this function to show purchases and process refunds
+    #TODO: Finish this function to show purchases and process refunds
      
 def user_refund(fratabase, user_row):
     """
@@ -134,13 +130,14 @@ def admin_refund(fratabase):
         print("Invalid ID.")
         return
 
-    with fratabase.cursor() as cur:
-        cur.execute("""
-            SELECT id, admin_level, first_name, last_name, username, password
-            FROM users_tables
-            WHERE id = %s;
-        """, (user_id,))
-        user_row = cur.fetchone()
+    cur = fratabase.cursor()
+    cur.execute("""
+        SELECT id, admin_level, first_name, last_name, username, password
+        FROM users_tables
+        WHERE id = ?;
+    """, (user_id,))
+    user_row = cur.fetchone()
+    cur.close()
 
     if user_row is None:
         print("No such user.")
@@ -184,31 +181,31 @@ def user_change_username(fratabase, user_row):
         print("Username cannot be empty.")
         return
 
-    with fratabase.cursor() as cur:
-        try:
-            cur.execute(
-                "UPDATE users_tables SET username = %s WHERE id = %s;",
-                (new_username, user_id),
-            )
-        except psycopg2.Error as e:
-            fratabase.rollback()
-            print("Could not update username:", e)
-            return
+    cur = fratabase.cursor()
+    try:
+        cur.execute(
+            "UPDATE users_tables SET username = ? WHERE id = ?;",
+            (new_username, user_id),
+        )
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Could not update username:", e)
+        return
     fratabase.commit()
     print(f"Username changed from '{old_username}' to '{new_username}'.")
     # cant update in local tuple for this session pllease see not e below
     #user_row[4] = new_username  #this one line right here sent me in a chasm because i forgot to update the fucking list so doing this wouldnt ACTUALLLYA update the username for the session and i was like
     #today i will suck start a shiotgun fun fact tuples are immuatable so this line of code is actually invalid so we need to refectch this shit
-    with fratabase.cursor() as cur:
-        cur.execute(
-            """
-            SELECT id, admin_level, first_name, last_name, username, password
-            FROM users_tables
-            WHERE id = %s;
-            """,
-            (user_id,),
-        )
-        new_row = cur.fetchone()
+    cur = fratabase.cursor()
+    cur.execute(
+        """
+        SELECT id, admin_level, first_name, last_name, username, password
+        FROM users_tables
+        WHERE id = ?;
+        """,
+        (user_id,),
+    )
+    new_row = cur.fetchone()
     return new_row if new_row is not None else user_row
     # i am genuinely killing myself over this one line of code
 
@@ -229,20 +226,20 @@ def user_change_password(fratabase, user_row):
         print("Passwords do not match.")
         return
 
-    with fratabase.cursor() as cur:
-        cur.execute("SELECT password FROM users_tables WHERE id = %s;", (user_id,))
-        row = cur.fetchone()
-        if row is None:
-            print("User not found in database.")
-            return
-        if current != row[0]:
-            print("Current password is incorrect.")
-            return
+    cur = fratabase.cursor()
+    cur.execute("SELECT password FROM users_tables WHERE id = ?;", (user_id,))
+    row = cur.fetchone()
+    if row is None:
+        print("User not found in database.")
+        return
+    if current != row[0]:
+        print("Current password is incorrect.")
+        return
 
-        cur.execute(
-            "UPDATE users_tables SET password = %s WHERE id = %s;",
-            (new1, user_id),
-        )
+    cur.execute(
+        "UPDATE users_tables SET password = ? WHERE id = ?;",
+        (new1, user_id),
+    )
     fratabase.commit()
     print("Password updated.")
     #call me john copy and paste
@@ -424,6 +421,54 @@ def handle_admin_user(fratabase,user_row):
         else:
             print("Invalid choice. Try again.")
 
+def admin_list_users(fratabase):
+    cur = fratabase.cursor()
+    cur.execute(f"SELECT * FROM users_tables;")
+    result = cur.fetchall()
+    for row in result:
+        print(row)
+def admin_delete_user(fratabase):
+    admin_list_users(fratabase)
+    print("All users have been displayed...")
+    input = input(print("Enter user ID of user to delete or type C to cancel:"))
+    if input == "C" or "c":
+        return
+    else:
+        user_id = int(input)
+    
+def admin_change_admin_level(fratabase):
+    raise NotImplementedError
+def admin_rename_user(fratabase):
+    raise NotImplementedError
+def admin_change_balance(fratabase): 
+    try:
+        user_id = int(input("Enter user ID to modify balance: ").strip())
+    except ValueError:
+        print("Invalid ID")
+        return
+    cur = fratabase.cursor()
+        
+    cur.execute("SELECT id, username, balance FROM users_tables WHERE id = ?;", (user_id,))
+    row = cur.fetchone()
+
+    if row is None:
+        print("No user found")
+        return
+        
+    uid, uname, old_balance = row
+    print(f"User: {uname}, Current balance: {old_balance}")
+
+    try:
+        new_balance = float(input("Enter new balance: ").strip())
+    except ValueError:
+        print("Invalid balance")
+        return
+    cur.execute("UPDATE users_tables SET balance = ? WHERE id = ?;", (new_balance, uid))
+    fratabase.commit()
+def admin_change_item_price_qty(fratabase):
+        raise NotImplementedError
+
+    
 
 # ------------- MAIN LOGIN FLOW ------------- #
 

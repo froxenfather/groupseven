@@ -1,30 +1,31 @@
-CREATE TABLE bigitemtotal (
-    item_id      SERIAL PRIMARY KEY,
-    item_name   VARCHAR(255) NOT NULL,
-    store       VARCHAR(100) NOT NULL,
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS bigitemtotal (
+    item_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name   TEXT NOT NULL,
+    store       TEXT NOT NULL,
     quantity    INTEGER NOT NULL,
-    price_item   DECIMAL(10,2) NOT NULL,
-    rating      DECIMAL(3,2)
+    price       REAL NOT NULL,
+    rating      REAL
 );
 
-
-CREATE TABLE users_tables (
-    id          SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS users_tables (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     admin_level INTEGER      NOT NULL,
-    first_name  VARCHAR(20),
-    last_name   VARCHAR(20),
-    username    VARCHAR(50)  NOT NULL UNIQUE,
-    password    VARCHAR(255) NOT NULL      
-    balance DECIMAL(15,2) NOT NULL DEFAULT 100.0 CHECK (bank_balance >= 0   )
+    first_name  TEXT,
+    last_name   TEXT,
+    username    TEXT  NOT NULL UNIQUE,
+    password    TEXT  NOT NULL,
+    balance     REAL  NOT NULL DEFAULT 100.0 CHECK (balance >= 0)
 );
 
-CREATE TABLE purchases (
-    purchase_id  SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS purchases (
+    purchase_id  INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER      NOT NULL,
     item_id      INTEGER      NOT NULL,
     quantity     INTEGER      NOT NULL CHECK (quantity > 0),
-    final_price  DECIMAL(10,2) NOT NULL CHECK (final_price >= 0),
-    purchased_at TIMESTAMP    NOT NULL DEFAULT NOW(),
+    final_price  REAL         NOT NULL CHECK (final_price >= 0),
+    purchased_at TEXT         NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT fk_purchases_user
         FOREIGN KEY (user_id)
@@ -35,15 +36,13 @@ CREATE TABLE purchases (
         REFERENCES bigitemtotal(item_id)
 );
 
-
-CREATE TABLE reviews (
-    review_id   SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS reviews (
+    review_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL REFERENCES users_tables(id),
     item_id     INTEGER NOT NULL REFERENCES bigitemtotal(item_id),
-    rating      DECIMAL(3,2) NOT NULL CHECK (rating >= 0 AND rating <= 5),
+    rating      REAL   NOT NULL CHECK (rating >= 0 AND rating <= 5),
     comment     TEXT,
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_at  TEXT   NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT unique_user_item_review UNIQUE (user_id, item_id)
 );
-
