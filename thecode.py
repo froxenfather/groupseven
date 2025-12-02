@@ -173,13 +173,12 @@ def settings(fratabase, user_row): #done i think
 
 
 def user_change_username(fratabase, user_row):
-    user_id, admin_level, first_name, last_name, old_username, _, balance = user_row
+    user_id, admin_level, first_name, last_name, old_username, password, balance = user_row
     new_username = input("Enter new username: ").strip()
-    new_row = None
 
     if not new_username:
         print("Username cannot be empty.")
-        return
+        return user_row
 
     cur = fratabase.cursor()
     try:
@@ -187,61 +186,65 @@ def user_change_username(fratabase, user_row):
             "UPDATE users_tables SET username = ? WHERE id = ?;",
             (new_username, user_id),
         )
+        fratabase.commit()
     except sqlite3.Error as e:
         fratabase.rollback()
+        cur.close()
         print("Could not update username:", e)
-        return
-    fratabase.commit()
+        return user_row
+
     print(f"Username changed from '{old_username}' to '{new_username}'.")
-    # cant update in local tuple for this session pllease see not e below
-    #user_row[4] = new_username  #this one line right here sent me in a chasm because i forgot to update the fucking list so doing this wouldnt ACTUALLLYA update the username for the session and i was like
-    #today i will suck start a shiotgun fun fact tuples are immuatable so this line of code is actually invalid so we need to refectch this shit
-    cur = fratabase.cursor()
+
     cur.execute(
         """
-        SELECT id, admin_level, first_name, last_name, username, password
+        SELECT id, admin_level, first_name, last_name, username, password, balance
         FROM users_tables
         WHERE id = ?;
         """,
         (user_id,),
     )
     new_row = cur.fetchone()
+    cur.close()
     return new_row if new_row is not None else user_row
-    # i am genuinely killing myself over this one line of code
+
 
 
 def user_change_password(fratabase, user_row):
     user_id, admin_level, first_name, last_name, username, password, balance = user_row
 
     current = input("Enter current password: ").strip()
-    
 
     if current != password:
         print("Current password is incorrect.")
         return
-    new1    = input("Enter new password: ").strip()
-    new2    = input("Confirm new password: ").strip()
+
+    new1 = input("Enter new password: ").strip()
+    new2 = input("Confirm new password: ").strip()
 
     if new1 != new2:
         print("Passwords do not match.")
         return
 
     cur = fratabase.cursor()
-    cur.execute("SELECT password FROM users_tables WHERE id = ?;", (user_id,))
-    row = cur.fetchone()
-    if row is None:
-        print("User not found in database.")
-        return
-    if current != row[0]:
-        print("Current password is incorrect.")
-        return
+    try:
+        cur.execute("SELECT password FROM users_tables WHERE id = ?;", (user_id,))
+        row = cur.fetchone()
+        if row is None:
+            print("User not found in database.")
+            return
+        if current != row[0]:
+            print("Current password is incorrect.")
+            return
 
-    cur.execute(
-        "UPDATE users_tables SET password = ? WHERE id = ?;",
-        (new1, user_id),
-    )
-    fratabase.commit()
-    print("Password updated.")
+        cur.execute(
+            "UPDATE users_tables SET password = ? WHERE id = ?;",
+            (new1, user_id),
+        )
+        fratabase.commit()
+        print("Password updated.")
+    finally:
+        cur.close()
+
     #call me john copy and paste
 
 
@@ -344,22 +347,22 @@ def admin_panel(fratabase, user_row):
             print("Invalid choice, try again.")
 
 def big_button(conn):
-
-    #this shit is almosat directly copied forom this cool ass tempate online i found
+    # this shit is almost directly copied from this cool ass template online i found
     choice = input("Print everything EXCEPT bigitemtotal? (Y/N): ").strip().lower()
 
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public';
-        """)
-        all_tables = [row[0] for row in cur.fetchall()]
+    # Get list of all user tables from SQLite
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table';
+    """)
+    all_tables = [row[0] for row in cur.fetchall()]
+    cur.close()
 
-    # Tables without the forbidden one
+    # Optionally filter out bigitemtotal
     tables_excluding_big = [t for t in all_tables if t.lower() != "bigitemtotal"]
 
-    # Decide which list to print
     if choice == "y":
         tables_to_print = tables_excluding_big
     else:
@@ -371,27 +374,29 @@ def big_button(conn):
 
     print("\n=== PRINTING TABLES ===\n")
 
-    with conn.cursor() as cur:
-        for table in tables_to_print:
-            print(f"\n--- TABLE: {table} ---")
-            try:
-                cur.execute(f"SELECT * FROM {table};")
-                rows = cur.fetchall()
-                colnames = [desc[0] for desc in cur.description]
+    for table in tables_to_print:
+        print(f"\n--- TABLE: {table} ---")
+        cur = conn.cursor()
+        try:
+            cur.execute(f"SELECT * FROM {table};")
+            rows = cur.fetchall()
+            colnames = [desc[0] for desc in cur.description]
 
-                # Header
-                print(" | ".join(colnames))
-                print("-" * (len(" | ".join(colnames)) + 5))
+            # Header
+            header = " | ".join(colnames)
+            print(header)
+            print("-" * (len(header) + 5))
 
-                # Rows
-                if rows:
-                    for r in rows:
-                        print(" | ".join(str(x) for x in r))
-                else:
-                    print("(no rows)")
-
-            except Exception as e:
-                print(f"Failed to read {table}: {e}")
+            # Rows
+            if rows:
+                for r in rows:
+                    print(" | ".join(str(x) for x in r))
+            else:
+                print("(no rows)")
+        except Exception as e:
+            print(f"Failed to read {table}: {e}")
+        finally:
+            cur.close()
 
 
 # ------------- ADMIN FRENGINE "that one lady that goes how may i direct your call" ------------- #
@@ -430,11 +435,30 @@ def admin_list_users(fratabase):
 def admin_delete_user(fratabase):
     admin_list_users(fratabase)
     print("All users have been displayed...")
-    input = input(print("Enter user ID of user to delete or type C to cancel:"))
-    if input == "C" or "c":
+    choice = input("Enter user ID of user to delete or type C to cancel: ").strip()
+
+    if choice.lower() == "c":
+        print("Cancelled.")
         return
-    else:
-        user_id = int(input)
+
+    try:
+        user_id = int(choice)
+    except ValueError:
+        print("Invalid ID.")
+        return
+
+    cur = fratabase.cursor()
+    try:
+        cur.execute("DELETE FROM users_tables WHERE id = ?;", (user_id,))
+        fratabase.commit()
+        print(f"User {user_id} deleted.")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to delete user:", e)
+    finally:
+        cur.close()
+
+
     
 def admin_change_admin_level(fratabase):
     raise NotImplementedError
@@ -517,11 +541,12 @@ def main():
             if db_admin_level == 1:
                 handle_admin_user(fratabase,user_row)
             else:
-                # Regular user
-                user_mode(user_row)
+                user_mode(fratabase, user_row)
 
-    except psycopg2.Error as e:
+
+    except sqlite3.Error as e:
         print("Database error:", e)
+
     finally:
         if fratabase is not None:
             fratabase.close()
