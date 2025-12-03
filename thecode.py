@@ -464,14 +464,16 @@ def admin_change_admin_level(fratabase):
     admin_list_users(fratabase)
     print("All users have been displayed...")
     choice = input("Enter user ID of user you want to change admin level (type C to cancel): ").strip()
-    while admin_level == -1:
-        admin_level = input("Enter 0 for normal user, 1 for admin (type C to cancel): ").strip()
-        if admin_level.lower != "1" or "0" or "c":
-            print("Only enter 1, 0, or C, no other values are excepted")
-    
-    if choice.lower() or admin_level == "c":
+    if choice.lower() == "c":
         print("Cancelled.")
         return
+    while admin_level == -1:
+        admin_level = input("Enter 0 for normal user, 1 for admin (type C to cancel): ").strip()
+        if admin_level not in ("0", "1", "c", "C"):
+            print("Only enter 1, 0, or C, no other values are excepted")
+        elif admin_level.lower() == "c":
+            print("Cancelled.")
+            return
 
     try:
         user_id = int(choice)
@@ -482,7 +484,7 @@ def admin_change_admin_level(fratabase):
 
     cur = fratabase.cursor()
     try:
-        cur.execute(f"UPDATE FROM users_tables SET admin_level = {level} WHERE id = {user_id};")
+        cur.execute(f"UPDATE users_tables SET admin_level = {level} WHERE id = {user_id};")
         fratabase.commit()
         print(f"User {user_id} Admin level set to {level}")
     except sqlite3.Error as e:
