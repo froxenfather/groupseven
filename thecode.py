@@ -462,8 +462,55 @@ def admin_delete_user(fratabase):
     
 def admin_change_admin_level(fratabase):
     raise NotImplementedError
+    
 def admin_rename_user(fratabase):
-    raise NotImplementedError
+    try:
+        user_id = int(input("Enter user ID to modify balance: ").strip())
+    except ValueError:
+        print("Invalid ID")
+        return
+    cur = fratabase.cursor()
+        
+    cur.execute("SELECT id, username, balance FROM users_tables WHERE id = ?;", (user_id,))
+    row = cur.fetchone()
+
+    if row is None:
+        print("No user found")
+        cur.close()
+        return
+        
+    uid, old_username = row
+    print(f"Current username: {old_username}")
+
+    new_username = input("Enter new username: ").strip()
+    if not new_username:
+        print("Username cannot be empty.")
+        cur.close()
+        return
+
+    # check duplicate username
+    cur.execute(
+        "SELECT username FROM users_tables WHERE username = ? AND id != ?;",
+        (new_username, uid),
+    )
+    if cur.fetchone():
+        print("That username is already taken.")
+        cur.close()
+        return
+
+    try:
+        cur.execute(
+            "UPDATE users_tables SET username = ? WHERE id = ?;",
+            (new_username, uid),
+        )
+        fratabase.commit()
+        print(f"Username changed from '{old_username}' to '{new_username}'.")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to rename user:", e)
+    finally:
+        cur.close()
+
 def admin_change_balance(fratabase): 
     try:
         user_id = int(input("Enter user ID to modify balance: ").strip())
@@ -477,6 +524,7 @@ def admin_change_balance(fratabase):
 
     if row is None:
         print("No user found")
+        cur.close()
         return
         
     uid, uname, old_balance = row
@@ -489,6 +537,7 @@ def admin_change_balance(fratabase):
         return
     cur.execute("UPDATE users_tables SET balance = ? WHERE id = ?;", (new_balance, uid))
     fratabase.commit()
+
 def admin_change_item_price_qty(fratabase):
         raise NotImplementedError
 
