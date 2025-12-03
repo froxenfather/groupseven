@@ -1,5 +1,6 @@
 import sqlite3
 import psycopg2
+import pandas as pd
 
 
 
@@ -266,10 +267,19 @@ def might_be(fratabase, term):
     1) Use SQL LIKE with %term% to find similar names
     2) Print a numbered list of results with name, price, quantity, avg rating"""
     #TODO: Implement might_be function
-    
+    term = term.strip()
     search = f"%{term}%"
 
-    raise NotImplementedError
+    cur = fratabase.cursor()
+    cur.execute("SELECT * FROM bigitemtotal WHERE item_name LIKE ?;", (search,))
+
+    result = cur.fetchall()
+    df = pd.DataFrame(result, columns=[desc[0] for desc in cur.description])
+    if df.empty:
+        print("no results...")
+    else:
+        print(df)
+
 
 # ------------------------------------------------------------- REFUND FRENGINE --------------------------------------------------------------- #
 def refund(fratabase, user_row):
@@ -501,7 +511,7 @@ def admin_panel(fratabase, user_row):
 
 
     #TODO: Implement admin functions below
-    raise NotImplementedError
+    #raise NotImplementedError
     while True:
         print("\nAdmin options:")
         print("1) List all users")
@@ -619,8 +629,8 @@ def admin_list_users(fratabase):
     cur = fratabase.cursor()
     cur.execute(f"SELECT * FROM users_tables;")
     result = cur.fetchall()
-    for row in result:
-        print(row)
+    df = pd.DataFrame(result, columns= ["id", "admin_level", "first_name", "last_name", "username", "password", "balance"])
+    print(df)
 def admin_delete_user(fratabase):
     admin_list_users(fratabase)
     print("All users have been displayed...")
@@ -646,15 +656,43 @@ def admin_delete_user(fratabase):
         print("Failed to delete user:", e)
     finally:
         cur.close()
-
-
     
 def admin_change_admin_level(fratabase):
-    raise NotImplementedError
-    
+    admin_level = -1
+    admin_list_users(fratabase)
+    print("All users have been displayed...")
+    choice = input("Enter user ID of user you want to change admin level (type C to cancel): ").strip()
+    if choice.lower() == "c":
+        print("Cancelled.")
+        return
+    while admin_level == -1:
+        admin_level = input("Enter 0 for normal user, 1 for admin (type C to cancel): ").strip()
+        if admin_level not in ("0", "1", "c", "C"):
+            print("Only enter 1, 0, or C, no other values are excepted")
+        elif admin_level.lower() == "c":
+            print("Cancelled.")
+            return
+
+    try:
+        user_id = int(choice)
+        level = int(admin_level)
+    except ValueError:
+        print("Invalid ID.")
+        return
+
+    cur = fratabase.cursor()
+    try:
+        cur.execute(f"UPDATE users_tables SET admin_level = {level} WHERE id = {user_id};")
+        fratabase.commit()
+        print(f"User {user_id} Admin level set to {level}")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to update user:", e)
+    finally:
+        cur.close()
 def admin_rename_user(fratabase):
     try:
-        user_id = int(input("Enter user ID to modify balance: ").strip())
+        user_id = int(input("Enter user ID to rename: ").strip())
     except ValueError:
         print("Invalid ID")
         return
@@ -668,7 +706,7 @@ def admin_rename_user(fratabase):
         cur.close()
         return
         
-    uid, old_username = row
+    user_id, old_username = row
     print(f"Current username: {old_username}")
 
     new_username = input("Enter new username: ").strip()
@@ -680,7 +718,7 @@ def admin_rename_user(fratabase):
     # check duplicate username
     cur.execute(
         "SELECT username FROM users_tables WHERE username = ? AND id != ?;",
-        (new_username, uid),
+        (new_username, user_id),
     )
     if cur.fetchone():
         print("That username is already taken.")
@@ -690,7 +728,7 @@ def admin_rename_user(fratabase):
     try:
         cur.execute(
             "UPDATE users_tables SET username = ? WHERE id = ?;",
-            (new_username, uid),
+            (new_username, user_id),
         )
         fratabase.commit()
         print(f"Username changed from '{old_username}' to '{new_username}'.")
@@ -716,26 +754,50 @@ def admin_change_balance(fratabase):
         cur.close()
         return
         
-    uid, uname, old_balance = row
+    user_id, uname, old_balance = row
     print(f"User: {uname}, Current balance: {old_balance}")
 
     try:
         new_balance = float(input("Enter new balance: ").strip())
     except ValueError:
         print("Invalid balance")
+        cur.close()
         return
-    cur.execute("UPDATE users_tables SET balance = ? WHERE id = ?;", (new_balance, uid))
-    fratabase.commit()
+
+    try:
+        cur.execute(
+            "UPDATE users_tables SET balance = ? WHERE id = ?;",
+            (new_balance, user_id),
+        )
+        fratabase.commit()
+        print(f"Balance updated: {old_balance} to {new_balance, user_id}")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to update balance:", e)
+    finally:
+        cur.close()
+
 
 def admin_change_item_price_qty(fratabase):
-        raise NotImplementedError
+        cur = fratabase.cursor()
+
+        cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal;")
+        rows = cur.fetchall()
+
+        if not rows:
+            print("No items found.")
+            cur.close()
+            return
+
+        print("\nItems:")
+
 
     
 
 # ------------- MAIN LOGIN FLOW ------------- #
 
 def main():
-    print("=== Welcome to Goon Road  ===")
+    print("Welcome to the Shop!")
 
     username = input("Enter username: ").strip()
     password = input("Enter password: ").strip()
