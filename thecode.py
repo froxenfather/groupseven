@@ -462,10 +462,10 @@ def admin_delete_user(fratabase):
     
 def admin_change_admin_level(fratabase):
     raise NotImplementedError
-    
+
 def admin_rename_user(fratabase):
     try:
-        user_id = int(input("Enter user ID to modify balance: ").strip())
+        user_id = int(input("Enter user ID to rename: ").strip())
     except ValueError:
         print("Invalid ID")
         return
@@ -479,7 +479,7 @@ def admin_rename_user(fratabase):
         cur.close()
         return
         
-    uid, old_username = row
+    user_id, old_username = row
     print(f"Current username: {old_username}")
 
     new_username = input("Enter new username: ").strip()
@@ -491,7 +491,7 @@ def admin_rename_user(fratabase):
     # check duplicate username
     cur.execute(
         "SELECT username FROM users_tables WHERE username = ? AND id != ?;",
-        (new_username, uid),
+        (new_username, user_id),
     )
     if cur.fetchone():
         print("That username is already taken.")
@@ -501,7 +501,7 @@ def admin_rename_user(fratabase):
     try:
         cur.execute(
             "UPDATE users_tables SET username = ? WHERE id = ?;",
-            (new_username, uid),
+            (new_username, user_id),
         )
         fratabase.commit()
         print(f"Username changed from '{old_username}' to '{new_username}'.")
@@ -527,26 +527,50 @@ def admin_change_balance(fratabase):
         cur.close()
         return
         
-    uid, uname, old_balance = row
+    user_id, uname, old_balance = row
     print(f"User: {uname}, Current balance: {old_balance}")
 
     try:
         new_balance = float(input("Enter new balance: ").strip())
     except ValueError:
         print("Invalid balance")
+        cur.close()
         return
-    cur.execute("UPDATE users_tables SET balance = ? WHERE id = ?;", (new_balance, uid))
-    fratabase.commit()
+
+    try:
+        cur.execute(
+            "UPDATE users_tables SET balance = ? WHERE id = ?;",
+            (new_balance, user_id),
+        )
+        fratabase.commit()
+        print(f"Balance updated: {old_balance} to {new_balance, user_id}")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to update balance:", e)
+    finally:
+        cur.close()
+
 
 def admin_change_item_price_qty(fratabase):
-        raise NotImplementedError
+        cur = fratabase.cursor()
+
+        cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal;")
+        rows = cur.fetchall()
+
+        if not rows:
+            print("No items found.")
+            cur.close()\
+            Return
+
+        print("\nItems:")
+
 
     
 
 # ------------- MAIN LOGIN FLOW ------------- #
 
 def main():
-    print("=== Welcome to Goon Road  ===")
+    print("Welcome to the Shop!")
 
     username = input("Enter username: ").strip()
     password = input("Enter password: ").strip()
