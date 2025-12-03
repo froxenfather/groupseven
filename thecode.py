@@ -1,5 +1,6 @@
 import sqlite3
 import psycopg2
+import pandas as pd
 
 
 
@@ -312,7 +313,7 @@ def admin_panel(fratabase, user_row):
 
 
     #TODO: Implement admin functions below
-    raise NotImplementedError
+    #raise NotImplementedError
     while True:
         print("\nAdmin options:")
         print("1) List all users")
@@ -430,8 +431,8 @@ def admin_list_users(fratabase):
     cur = fratabase.cursor()
     cur.execute(f"SELECT * FROM users_tables;")
     result = cur.fetchall()
-    for row in result:
-        print(row)
+    df = pd.DataFrame(result, columns= ["id", "admin_level", "first_name", "last_name", "username", "password", "balance"])
+    print(df)
 def admin_delete_user(fratabase):
     admin_list_users(fratabase)
     print("All users have been displayed...")
@@ -457,11 +458,38 @@ def admin_delete_user(fratabase):
         print("Failed to delete user:", e)
     finally:
         cur.close()
-
-
     
 def admin_change_admin_level(fratabase):
-    raise NotImplementedError
+    admin_level = -1
+    admin_list_users(fratabase)
+    print("All users have been displayed...")
+    choice = input("Enter user ID of user you want to change admin level (type C to cancel): ").strip()
+    while admin_level == -1:
+        admin_level = input("Enter 0 for normal user, 1 for admin (type C to cancel): ").strip()
+        if admin_level.lower != "1" or "0" or "c":
+            print("Only enter 1, 0, or C, no other values are excepted")
+    
+    if choice.lower() or admin_level == "c":
+        print("Cancelled.")
+        return
+
+    try:
+        user_id = int(choice)
+        level = int(admin_level)
+    except ValueError:
+        print("Invalid ID.")
+        return
+
+    cur = fratabase.cursor()
+    try:
+        cur.execute(f"UPDATE FROM users_tables SET admin_level = {level} WHERE id = {user_id};")
+        fratabase.commit()
+        print(f"User {user_id} Admin level set to {level}")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to update user:", e)
+    finally:
+        cur.close()
 def admin_rename_user(fratabase):
     raise NotImplementedError
 def admin_change_balance(fratabase): 
