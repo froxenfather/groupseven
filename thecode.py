@@ -559,8 +559,8 @@ def admin_change_item_price_qty(fratabase):
 
         if not rows:
             print("No items found.")
-            cur.close()\
-            Return
+            cur.close()
+            return
 
         print("\nItems:")
 
