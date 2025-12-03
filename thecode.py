@@ -100,6 +100,7 @@ def purchase(fratabase, user_row, item_name):
 
     def rating_or_zero(row): #helper function to avoid none type errors because that was a huge proble
         return row[IDX_RATING] if row[IDX_RATING] is not None else 0
+    #note this doesnt actually set any reviews to zero it just makes it so they are the lowest possible value when comparing for max
 
     reviewburger = max(allburgers, key=lambda r: (rating_or_zero(r), -r[IDX_PRICE]))
 
