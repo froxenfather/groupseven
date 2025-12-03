@@ -78,10 +78,19 @@ def might_be(fratabase, term):
     1) Use SQL LIKE with %term% to find similar names
     2) Print a numbered list of results with name, price, quantity, avg rating"""
     #TODO: Implement might_be function
-    
+    term = term.strip()
     search = f"%{term}%"
 
-    raise NotImplementedError
+    cur = fratabase.cursor()
+    cur.execute("SELECT * FROM bigitemtotal WHERE item_name LIKE ?;", (search,))
+
+    result = cur.fetchall()
+    df = pd.DataFrame(result, columns=[desc[0] for desc in cur.description])
+    if df.empty:
+        print("no results...")
+    else:
+        print(df)
+
 
 # ------------------------------------------------------------- REFUND FRENGINE --------------------------------------------------------------- #
 def refund(fratabase, user_row):
