@@ -782,20 +782,74 @@ def admin_change_balance(fratabase):
 
 
 def admin_change_item_price_qty(fratabase):
-        cur = fratabase.cursor()
+    cur = fratabase.cursor()
 
-        cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal;")
-        rows = cur.fetchall()
+    cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal;")
+    rows = cur.fetchall()
 
-        if not rows:
-            print("No items found.")
+    if not rows:
+        print("No items found.")
+        cur.close()
+        return
+
+    print("\nItems:")
+    for item_id, item_name, price, quantity in rows:
+        print(f"ID number: {item_id} | Item Name: {item_name} | Price: {price} | Quantity: {quantity}")
+    try:
+        item_id = int(input("Input item ID you with to modify").strip())
+    except ValueError:
+        print("Invalid ID")
+        cur.close()
+        return
+
+    cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal WHERE item_id = ?;", (item_id,),)
+
+    row = cur.fetchone()
+
+    if row is None:
+        print("Item not found.")
+        cur.close()
+        return
+
+    item_id, item_name, old_price, old_quantity = row
+    print(f"Item Name: {item_name} | Price: {old_price} | Quantity: {old_quantity}")
+
+    new_price = input("Enter updated price").strip()
+    new_quantity = input("Enter updated quantity").strip()
+
+    if new_price == "":
+        new_price = old_price
+    else:
+        try:
+            new_price = float(new_price)
+        except ValueError:
+            print("Invalid price")
             cur.close()
             return
 
-        print("\nItems:")
+    if new_quantity == "":
+        new_quantity = old_quantity
+    else:
+        try:
+            new_quantity = int(new_quantity)
+        except ValueError:
+            print("Invalid quantity")
+            cur.close()
+            return         
 
-
+    try:
+        cur.execute(
+            "UPDATE bigitemtotal SET price = ?, quantity = ? WHERE item_id = ?;",
+            (new_price, new_quantity, item_id)
+        )
     
+        fratabase.commit()
+        print(f"Item: {item_name} Updated price from {old_price} to {new_price} and quantity from {old_quantity} to {new_quantity}")
+    except sqlite3.Error as e:
+        fratabase.rollback()
+        print("Failed to update item price / quantity:", e)
+    finally:
+        cur.close()
 
 # ------------- MAIN LOGIN FLOW ------------- #
 
