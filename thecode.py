@@ -399,7 +399,7 @@ def refund(fratabase, user_row):
         )
 
         fratabase.commit()
-        print("Refund completed.")
+        print("Refund completed: Yoink.")
 
     except Exception as e:
         fratabase.rollback()
