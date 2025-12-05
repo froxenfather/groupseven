@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS bigitemtotal (
     item_name   TEXT NOT NULL,
     store       TEXT NOT NULL,
     quantity    INTEGER NOT NULL,
-    price       REAL NOT NULL,
+    price_item       REAL NOT NULL,
     rating      REAL
 );
 

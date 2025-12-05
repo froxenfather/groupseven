@@ -652,6 +652,7 @@ def big_button(conn):
         WHERE type = 'table';
     """)
     all_tables = [row[0] for row in cur.fetchall()]
+
     cur.close()
 
     # Optionally filter out bigitemtotal
