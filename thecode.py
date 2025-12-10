@@ -12,6 +12,61 @@ import pandas as pd
 def get_connection():
     return sqlite3.connect("fratabase.db")
 
+# ------------- BULK LOADING ------------- #
+
+def load_csv_to_bigitemtotal(
+    fratabase,
+    csv_path,
+    store_name,
+    name_col,
+    qty_col,
+    price_col,
+    rating_col=None,
+    encoding="utf-8",
+):
+
+    print(f"\nLoading {csv_path} for store={store_name} ...")
+
+    #Read the CSV
+
+    df = pd.read_csv(csv_path, encoding=encoding)
+
+    #Remove uneeded Columns
+    cols = [name_col, qty_col, price_col]
+    if rating_col is not None and rating_col in df.columns:
+        cols.append(rating_col)
+
+    df = df[cols].copy()
+
+    #Rename to Internals Names
+    rename_map = {
+        name_col: "item_name",
+        qty_col: "quantity",
+        price_col: "price_item",
+    }
+
+    if rating_col is not None and rating_col in df.columns:
+        rename_map[rating_col] = "rating"
+
+    df.rename(columns=rename_map, inplace=True)
+
+    #Add store name
+    df["store"] = store_name
+
+    # Quantity must be integer and at least 1
+    df["quantity"] = (
+        pd.to_numeric(df["quantity"], errors="coerce")
+        .fillna(1)
+        .clip(lower=1)
+        .astype(int)
+    )
+
+    # Price must be positive float
+    df["price_item"] = (
+        pd.to_numeric(df["price_item"], errors="coerce")
+        .fillna(0)
+        .clip(lower=0.01)
+    )
 
 # ------------- USER HELPERS ------------- #
 
