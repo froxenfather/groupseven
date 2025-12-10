@@ -72,6 +72,10 @@ def purchase(fratabase, user_row, item_name):
     cur = fratabase.cursor()
 
     # 1. Find all items with this exact name, use might_be to browse but dont want 
+
+    #Trying with the a might_be style search instead
+    item_name = "%?%",{item_name}
+
     cur.execute(
         """
         SELECT item_id, item_name, store, quantity, price_item, rating
