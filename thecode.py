@@ -877,7 +877,7 @@ def admin_change_balance(fratabase):
 def admin_change_item_price_qty(fratabase):
     cur = fratabase.cursor()
 
-    cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal;")
+    cur.execute("SELECT item_id, item_name, price_item, quantity FROM bigitemtotal;")
     rows = cur.fetchall()
 
     if not rows:
@@ -886,8 +886,8 @@ def admin_change_item_price_qty(fratabase):
         return
 
     print("\nItems:")
-    for item_id, item_name, price, quantity in rows:
-        print(f"ID number: {item_id} | Item Name: {item_name} | Price: {price} | Quantity: {quantity}")
+    for item_id, item_name, price_item, quantity in rows:
+        print(f"ID number: {item_id} | Item Name: {item_name} | Price: {price_item} | Quantity: {quantity}")
     try:
         item_id = int(input("Input item ID you with to modify").strip())
     except ValueError:
@@ -895,7 +895,7 @@ def admin_change_item_price_qty(fratabase):
         cur.close()
         return
 
-    cur.execute("SELECT item_id, item_name, price, quantity FROM bigitemtotal WHERE item_id = ?;", (item_id,),)
+    cur.execute("SELECT item_id, item_name, price_item, quantity FROM bigitemtotal WHERE item_id = ?;", (item_id,),)
 
     row = cur.fetchone()
 
