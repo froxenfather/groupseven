@@ -14,28 +14,25 @@ def load_csv_to_bigitemtotal(
     csv_path,
     store_name,
     name_col,
-    qty_col = None,
-    price_col = None,
+    qty_col=None,
+    price_col=None,
     rating_col=None,
     encoding="utf-8",
 ):
 
     print(f"\nLoading {csv_path} for store={store_name} ...")
 
-    #Read the CSV
-
+    # load csv
     df = pd.read_csv(csv_path, encoding=encoding)
 
-    # Bare Minimum Colums required: throw error if it doesnt have these
+    # Bare bones columns required
     if name_col not in df.columns:
         raise ValueError(f"{csv_path}: missing item name column '{name_col}'")
 
     if price_col is None or price_col not in df.columns:
         raise ValueError(f"{csv_path}: missing price column '{price_col}'")
-    
 
-
-    #Only selct the barebones fellas
+    # Keep only the needed columns
     cols = [name_col, price_col]
     if qty_col is not None and qty_col in df.columns:
         cols.append(qty_col)
@@ -44,7 +41,7 @@ def load_csv_to_bigitemtotal(
 
     df = df[cols].copy()
 
-    #Rename to Internal Names
+    #Rename to internal names
     rename_map = {name_col: "item_name", price_col: "price_item"}
     if qty_col is not None and qty_col in df.columns:
         rename_map[qty_col] = "quantity"
@@ -56,60 +53,63 @@ def load_csv_to_bigitemtotal(
     #Add store name
     df["store"] = store_name
 
-    # Quantity must be integer and at least 1
-    if qty_col and qty_col in df.columns:
-        df["quantity"] = (pd.to_numeric(df[qty_col], errors="coerce"))
-        df["quantity"] = df["quantity"].fillna(10)
+    #Quantity handling (now only use 'quantity')
+    if "quantity" in df.columns:
+        df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce").fillna(10)
     else:
-        df["quantity"] = 10 #default fallback value is 10
+        df["quantity"] = 10  # default fallback
 
     df["quantity"] = df["quantity"].clip(lower=1).astype(int)
 
-    # Price must be positive float
-    if df[price_col].astype(str).str.contains("₹").any():
-        is_rupees = True
-    else:
-        is_rupees = False
-    
+    # Price handling — detect ₹ 
+    raw_price = df["price_item"].astype(str)
+
+    is_rupees = raw_price.str.contains("₹").any()
+
+    # strip symbols/extra chars
     df["price_item"] = (
-    df["price_item"]
-    .astype(str)
-    .str.replace(r"[^\d.\-]", "", regex=True)   # keep digits, dot, minus
-)
-    
+        raw_price
+        .str.replace(r"[^\d.\-]", "", regex=True)  # keep digits, dot, minus
+        .str.strip()
+    )
+
     df["price_item"] = (
         pd.to_numeric(df["price_item"], errors="coerce")
         .fillna(0)
         .clip(lower=0.01)
     )
+
+    #conversion
     if is_rupees:
-        INR_TO_USD = 0.011
-        df["price_item"] = df["price_item"] * INR_TO_USD
+        INR_TO_USD = 0.011  
+        df["price_item"] = round(df["price_item"] * INR_TO_USD, 2)
+
+    # Rating
     if "rating" in df.columns:
         df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     else:
         df["rating"] = None
 
-    #Drop rows
+    #Drop bad item names
     df = df[
         df["item_name"].notna()
         & (df["item_name"].astype(str).str.strip() != "")
     ]
 
-    df = df[df["item_name"].str.strip() != ""]
+    #Prepare rows & insert
+    rows = df[["item_name", "store", "quantity", "price_item", "rating"]].itertuples(
+        index=False, name=None
+    )
 
-    rows = df[["item_name", "store", "quantity", "price_item", "rating"]].itertuples(index=False, name=None)
-
-    
     cur = fratabase.cursor()
     cur.executemany(
-        "INSERT INTO bigitemtotal (item_name, store, quantity, price_item, rating) VALUES (?, ?, ?, ?, ?);",
+        "INSERT INTO bigitemtotal (item_name, store, quantity, price_item, rating) "
+        "VALUES (?, ?, ?, ?, ?);",
         list(rows),
     )
     fratabase.commit()
     cur.close()
     print(f"Inserted {len(df)} rows from {csv_path}.")
-
 
 # Loading specific datasets
 
