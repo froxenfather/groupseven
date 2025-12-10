@@ -78,11 +78,12 @@ def remove_duplicates(fratabase):
 def load_csv_to_bigitemtotal(
     fratabase,
     csv_path,
-    store_name,
-    name_col,
+    store_name = None,
+    name_col = None,
     qty_col=None,
     price_col=None,
     rating_col=None,
+    store_col = None,
     encoding="utf-8",
 ):
 
@@ -113,6 +114,28 @@ def load_csv_to_bigitemtotal(
         rename_map[qty_col] = "quantity"
     if rating_col is not None and rating_col in df.columns:
         rename_map[rating_col] = "rating"
+
+    # --- Store handling ---
+    if store_col is not None and store_col in df.columns:
+        # Use CSV column for store names
+        df["store"] = (
+            df[store_col]
+            .astype(str)
+            .str.strip()
+        )
+        # Fallback: if some rows have blank/NaN store, use store_name if provided
+        if store_name is not None:
+            df["store"] = df["store"].where(
+                df["store"] != "",       # keep non-empty
+                other=store_name        # replace empty with default
+            )
+            df["store"] = df["store"].fillna(store_name)
+    else:
+        # No store_col given → use constant store_name for all rows
+        if store_name is None:
+            raise ValueError(f"{csv_path}: either store_name or store_col must be provided")
+        df["store"] = store_name
+
 
     df.rename(columns=rename_map, inplace=True)
 
