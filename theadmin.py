@@ -123,7 +123,7 @@ def seed_bigitemtotal():
 
     conn.commit()
 
-    # === 1) E-commerce data (carrie1/ecommerce-data) ===
+    # Ecommerce data
     # Columns: InvoiceNo, StockCode, Description, Quantity, InvoiceDate, UnitPrice, CustomerID, Country
 
     load_csv_to_bigitemtotal(
@@ -137,20 +137,28 @@ def seed_bigitemtotal():
         encoding="latin1",  # often needed for this dataset
     )
 
-    # === 2) Amazon Sales Dataset ===
-    # Open it once in a small script or notebook and run: print(df.columns)
-    # Then plug the correct names below — here are COMMON patterns, but you must check:
-    # e.g. 'product_name', 'rating', 'discounted_price', etc.
+    # Amazon Sales Dataset
+
     load_csv_to_bigitemtotal(
         conn,
         csv_path="data/amazon.csv",
         store_name="Amazon",
         name_col="product_name",
-        qty_col= None,
-        price_col="discounted_price", # or 'actual_price' – depends on dataset
-        rating_col="rating",          # or whatever the rating column is called
+        qty_col=None,
+        price_col="discounted_price",
+        rating_col="rating",          
     )
 
+    # Whole Foods Dataset
+    load_csv_to_bigitemtotal(
+        conn,
+        csv_path="data/whole_foods.csv",
+        store_name="Whole Foods",
+        name_col="product",
+        qty_col=None,
+        price_col="regular",
+        rating_col=None,
+    )
         # === 3) Target Store Dataset ===
     # This dataset might be store locations, not items. If there's no product info,
     # you may NOT want to load it into bigitemtotal at all, or you need a different table.
