@@ -19,8 +19,8 @@ def load_csv_to_bigitemtotal(
     csv_path,
     store_name,
     name_col,
-    qty_col,
-    price_col,
+    qty_col = None,
+    price_col = None,
     rating_col=None,
     encoding="utf-8",
 ):
@@ -31,20 +31,30 @@ def load_csv_to_bigitemtotal(
 
     df = pd.read_csv(csv_path, encoding=encoding)
 
+    # Bare Minimum Colums required: throw error if it doesnt have these
+    if name_col not in df.columns:
+        raise ValueError(f"{csv_path}: missing item name column '{name_col}'")
+
+    if price_col is None or price_col not in df.columns:
+        raise ValueError(f"{csv_path}: missing price column '{price_col}'")
     #Remove uneeded Columns
     cols = [name_col, qty_col, price_col]
     if rating_col is not None and rating_col in df.columns:
         cols.append(rating_col)
 
+    #Only selct the barebones fellas
+    cols = [name_col, price_col]
+    if qty_col is not None and qty_col in df.columns:
+        cols.append(qty_col)
+    if rating_col is not None and rating_col in df.columns:
+        cols.append(rating_col)
+
     df = df[cols].copy()
 
-    #Rename to Internals Names
-    rename_map = {
-        name_col: "item_name",
-        qty_col: "quantity",
-        price_col: "price_item",
-    }
-
+    #Rename to Internal Names
+    rename_map = {name_col: "item_name", price_col: "price_item"}
+    if qty_col is not None and qty_col in df.columns:
+        rename_map[qty_col] = "quantity"
     if rating_col is not None and rating_col in df.columns:
         rename_map[rating_col] = "rating"
 
@@ -54,12 +64,13 @@ def load_csv_to_bigitemtotal(
     df["store"] = store_name
 
     # Quantity must be integer and at least 1
-    df["quantity"] = (
-        pd.to_numeric(df["quantity"], errors="coerce")
-        .fillna(1)
-        .clip(lower=1)
-        .astype(int)
-    )
+    if qty_col and qty_col in df.columns:
+        df["quantity"] = (pd.to_numeric(df[qty_col], errors="coerce"))
+        df["quantity"] = df["quantity"].fillna(10)
+    else:
+        df["quantity"] = 10 #default fallback value is 10
+
+    df["quantity"] = df["quantity"].clip(lower=1).astype(int)
 
     # Price must be positive float
     df["price_item"] = (
@@ -67,6 +78,31 @@ def load_csv_to_bigitemtotal(
         .fillna(0)
         .clip(lower=0.01)
     )
+
+    if "rating" in df.columns:
+        df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+    else:
+        df["rating"] = None
+
+    #Drop rows
+    df = df[
+        df["item_name"].notna()
+        & (df["item_name"].astype(str).str.strip() != "")
+    ]
+
+    df = df[df["item_name"].str.strip() != ""]
+
+    rows = df[["item_name", "store", "quantity", "price_item", "rating"]].itertuples(index=False, name=None)
+
+    
+    cur = fratabase.cursor()
+    cur.executemany(
+        "INSERT INTO bigitemtotal (item_name, store, quantity, price_item, rating) VALUES (?, ?, ?, ?, ?);",
+        list(rows),
+    )
+    fratabase.commit()
+    cur.close()
+    print(f"Inserted {len(df)} rows from {csv_path}.")
 
 
 # Loading specific datasets
