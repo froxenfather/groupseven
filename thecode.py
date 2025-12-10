@@ -74,18 +74,21 @@ def purchase(fratabase, user_row, item_name):
     # 1. Find all items with this exact name, use might_be to browse but dont want 
 
     #Trying with the a might_be style search instead
-    item_name = "%?%",{item_name}
+    item_name = f"%{item_name}%"
 
+    #query changed, Works effectivley
     cur.execute(
         """
         SELECT item_id, item_name, store, quantity, price_item, rating
         FROM bigitemtotal
-        WHERE item_name = ?
+        WHERE item_name LIKE ?
         """,
         (item_name,),
     )
+
     allburgers = cur.fetchall()
 
+    item_name = item_name.strip("%")
     if not allburgers:
         print(f"\nNo items found with name '{item_name}'.\n")
         cur.close()
@@ -736,7 +739,7 @@ def shop_mode(fratabase, user_row):
     while True:
         print("\nWhat would you like to do?")
         print("1) Search items by name (might_be)")
-        print("2) Purchase an item by exact name")
+        print("2) Purchase an item by name (might_be)")
         print("3) Leave a review for an item")
         print("4) Refund an item")
         print("5) Exit shop")
@@ -747,7 +750,7 @@ def shop_mode(fratabase, user_row):
             term = input("Enter part of an item name to search: ").strip()
             might_be(fratabase, term)
         elif choice == "2":
-            item_name = input("Enter the exact item name to purchase: ").strip()
+            item_name = input("Enter the item name to purchase: ").strip()
             purchase(fratabase, user_row, item_name)
         elif choice == "3":
             review_item(fratabase, user_row)
