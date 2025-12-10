@@ -34,6 +34,7 @@ def load_csv_to_bigitemtotal(
         raise ValueError(f"{csv_path}: missing price column '{price_col}'")
     
 
+
     #Only selct the barebones fellas
     cols = [name_col, price_col]
     if qty_col is not None and qty_col in df.columns:
@@ -65,12 +66,25 @@ def load_csv_to_bigitemtotal(
     df["quantity"] = df["quantity"].clip(lower=1).astype(int)
 
     # Price must be positive float
+    if df[price_col].astype(str).str.contains("₹").any():
+        is_rupees = True
+    else:
+        is_rupees = False
+    
+    df["price_item"] = (
+    df["price_item"]
+    .astype(str)
+    .str.replace(r"[^\d.\-]", "", regex=True)   # keep digits, dot, minus
+)
+    
     df["price_item"] = (
         pd.to_numeric(df["price_item"], errors="coerce")
         .fillna(0)
         .clip(lower=0.01)
     )
-
+    if is_rupees:
+        INR_TO_USD = 0.011
+        df["price_item"] = df["price_item"] * INR_TO_USD
     if "rating" in df.columns:
         df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     else:
@@ -131,12 +145,12 @@ def seed_bigitemtotal():
     # e.g. 'product_name', 'rating', 'discounted_price', etc.
     load_csv_to_bigitemtotal(
         conn,
-        csv_path="data/amazon_sales.csv",
+        csv_path="data/amazon.csv",
         store_name="Amazon",
-        name_col="Product Name",
+        name_col="product_name",
         qty_col= None,
-        price_col="Discounted Price", # or 'actual_price' – depends on dataset
-        rating_col="Rating",          # or whatever the rating column is called
+        price_col="discounted_price", # or 'actual_price' – depends on dataset
+        rating_col="rating",          # or whatever the rating column is called
     )
 
         # === 3) Target Store Dataset ===
