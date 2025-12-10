@@ -229,21 +229,16 @@ def seed_bigitemtotal():
         price_col="regular",
         rating_col=None,
     )
-        # === 3) Target Store Dataset ===
-    # This dataset might be store locations, not items. If there's no product info,
-    # you may NOT want to load it into bigitemtotal at all, or you need a different table.
-    # If there IS a product/price table, map it here like the others.
-
-    # Example (ONLY if the CSV actually has these):
-    # load_csv_to_bigitemtotal(
-    #     conn,
-    #     csv_path="data/target_items.csv",
-    #     store_name="Target",
-    #     name_col="product_name",
-    #     qty_col="quantity",
-    #     price_col="unit_price",
-    #     rating_col=None,
-    # )
+    # Various Grocery Stores Dataset
+    load_csv_to_bigitemtotal(
+        conn,
+        csv_path="data/grocery_chain_data.csv",
+        store_name="store_name",
+        name_col="product_name",
+        qty_col="quantity",
+        price_col="unit_price",
+        rating_col=None,
+    )
 
         # === 4) Walmart Sales (mikhail1681/walmart-sales) ===
     # Depending on the file, you may have item name + sales; check df.columns.
