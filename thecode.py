@@ -283,6 +283,160 @@ def might_be(fratabase, term):
 
         #good work jiah
 
+    cur.close()
+
+# --------------------------------------------- REVIEW FRENGINE --------------------------------------------------------------- #
+
+def review_item(fratabase, user_row):
+    """
+    Let a user choose one of their purchases and leave a rating + comment.
+    Then recompute average rating per item from reviews and update bigitemtotal.
+    """
+    user_id, admin_level, first_name, last_name, username, password, balance = user_row
+
+    cur = fratabase.cursor()
+
+    # 1. just like refund grab users purchases
+    cur.execute(
+        """
+        SELECT p.purchase_id,
+               p.item_id,
+               b.item_name,
+               p.quantity,
+               p.final_price,
+               p.purchased_at
+        FROM purchases p
+        JOIN bigitemtotal b ON p.item_id = b.item_id
+        WHERE p.user_id = ?
+        ORDER BY p.purchased_at DESC;
+        """,
+        (user_id,),
+    )
+    rows = cur.fetchall()
+
+    if not rows:
+        print(f"\nUser '{username}' has no purchases to review.\n")
+        cur.close()
+        return
+
+    print(f"\nRecent purchases for {username}:")
+    print("ID | Item              | Qty | Total   | When")
+    print("---+-------------------+-----+---------+---------------------")
+    for pid, item_id, item_name, qty, total, ts in rows:
+        print(f"{pid:<3} | {item_name[:19]:<19} | {qty:>3} | {float(total):>7.2f} | {ts}")
+
+    # 2.choose purchase to review
+    while True:
+        choice = input("\nEnter purchase_id to review (or 'cancel'): ").strip().lower()
+        if choice == "cancel":
+            print("Review cancelled.")
+            cur.close()
+            return
+        try:
+            purchase_id = int(choice)
+            break
+        except ValueError:
+            print("purchase_id must be an integer.")
+
+    # 3. Re-fetch that purchase and validate ownership just like in purchase and refund
+    cur.execute(
+        """
+        SELECT p.purchase_id,
+               p.item_id,
+               b.item_name
+        FROM purchases p
+        JOIN bigitemtotal b ON p.item_id = b.item_id
+        WHERE p.purchase_id = ?
+          AND p.user_id = ?;
+        """,
+        (purchase_id, user_id),
+    )
+    row = cur.fetchone()
+
+    if row is None:
+        print("No such purchase exists with that ID for this user.")
+        cur.close()
+        return
+
+    _, item_id, item_name = row
+    print(f"\nYou are reviewing: {item_name} (item_id {item_id})")
+
+    # 4. Get rating 1–5 (decimals allowed)
+    while True:
+        rating_str = input("Enter rating (1.0 to 5.0, decimals allowed): ").strip()
+        try:
+            rating = float(rating_str)
+        except ValueError:
+            print("Rating must be a number.")
+            continue
+        if rating < 1.0 or rating > 5.0:
+            print("Rating must be between 1.0 and 5.0.")
+            continue
+        break
+
+    # 5. Get optional text review
+    comment = input("Enter a short written review (or press Enter to skip): ").strip()
+    if comment == "":
+        comment = None
+
+    try:
+        # 6. Insert the review row
+        cur.execute(
+            """
+            INSERT INTO reviews (user_id, item_id, rating, comment)
+            VALUES (?, ?, ?, ?);
+            """,
+            (user_id, item_id, rating, comment),
+        )
+
+        # 7. the big scary one: recompute average ratings for all items and update bigitemtotal
+        # this BETTER be good enough for you all 
+        cur.execute(
+            """
+            WITH per_item AS (
+                SELECT
+                    item_id,
+                    AVG(rating) AS avg_rating,
+                    COUNT(*)    AS num_reviews
+                FROM reviews
+                WHERE rating IS NOT NULL
+                GROUP BY item_id
+            ),
+            joined AS (
+                SELECT
+                    b.item_id,
+                    b.rating       AS old_rating,
+                    p.avg_rating   AS new_rating,
+                    p.num_reviews
+                FROM bigitemtotal b
+                JOIN per_item p ON b.item_id = p.item_id
+            ),
+            affected AS (
+                SELECT item_id, new_rating
+                FROM joined
+                WHERE new_rating IS NOT NULL
+            )
+            UPDATE bigitemtotal
+            SET rating = (
+                SELECT new_rating
+                FROM affected
+                WHERE affected.item_id = bigitemtotal.item_id
+            )
+            WHERE item_id IN (SELECT item_id FROM affected);
+            """
+        )
+
+        fratabase.commit()
+        print(f"\nThanks for reviewing {item_name}! Rating saved and item averages updated.\n")
+
+    except Exception as e:
+        fratabase.rollback()
+        print("Error while saving review and updating ratings:", e)
+
+    finally:
+        cur.close()
+
+
 
 # ------------------------------------------------------------- REFUND FRENGINE --------------------------------------------------------------- #
 def refund(fratabase, user_row):
@@ -426,7 +580,7 @@ def admin_refund(fratabase):
 
     cur = fratabase.cursor()
     cur.execute("""
-        SELECT id, admin_level, first_name, last_name, username, password
+        SELECT id, admin_level, first_name, last_name, username, password, balance
         FROM users_tables
         WHERE id = ?;
     """, (user_id,))
@@ -579,8 +733,9 @@ def shop_mode(fratabase, user_row):
         print("\nWhat would you like to do?")
         print("1) Search items by name (might_be)")
         print("2) Purchase an item by exact name")
-        print("3) Refund an item")
-        print("4) Exit shop")
+        print("3) Leave a review for an item")
+        print("4) Refund an item")
+        print("5) Exit shop")
 
         choice = input("Choose an option: ").strip()
 
@@ -591,8 +746,11 @@ def shop_mode(fratabase, user_row):
             item_name = input("Enter the exact item name to purchase: ").strip()
             purchase(fratabase, user_row, item_name)
         elif choice == "3":
-            user_refund(fratabase, user_row)
+            review_item(fratabase, user_row)
+    
         elif choice == "4":
+            user_refund(fratabase, user_row)
+        elif choice == "5":
             print("Seeya.")
             break
         else:
