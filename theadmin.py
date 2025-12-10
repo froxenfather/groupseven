@@ -1,11 +1,54 @@
 import sqlite3
 import psycopg2
 import pandas as pd
+import re
 
 # ------------- DB CONNECTION ------------- #
 
 def get_connection():
     return sqlite3.connect("fratabase.db")
+
+
+# ------------- Name Cleaning------------- #
+
+
+
+STOPWORDS = {
+    "for", "with", "new", "edition", "pack", "set", "model",
+    "the", "and", "of", "a", "an", "in", "to"
+}
+
+def clean_catalog_name(name: str, word_limit=6, max_len=40):
+    """Clean and shorten product names into catalog-friendly versions."""
+    
+    if not isinstance(name, str):
+        return name
+
+    #remove brackets 
+    name = re.sub(r"\(.*?\)", "", name)
+    name = re.sub(r"\[.*?\]", "", name)
+
+    # Remove extra spaces and hyphens
+    name = re.sub(r"[^A-Za-z0-9\s\-]", "", name)
+
+    # Normalize whitespace
+    name = re.sub(r"\s+", " ", name).strip()
+
+    # Remove filler/stop words
+    tokens = [t for t in name.split() if t.lower() not in STOPWORDS]
+
+    # Limit to first N meaningful words
+    tokens = tokens[:word_limit]
+
+    # If removing stopwords removed everything, fallback
+    if not tokens:
+        tokens = name.split()[:word_limit]
+
+    # Reconstruct and apply Title Case for catalog style
+    name = " ".join(tokens).strip().title()
+
+    return name
+
 
 # ------------- BULK LOADING ------------- #
 
@@ -52,6 +95,10 @@ def load_csv_to_bigitemtotal(
 
     #Add store name
     df["store"] = store_name
+
+    #Clean item name
+    
+    df["item_name"] = df["item_name"].astype(str).apply(clean_catalog_name)
 
     #Quantity handling (now only use 'quantity')
     if "quantity" in df.columns:
