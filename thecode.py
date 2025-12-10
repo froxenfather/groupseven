@@ -68,6 +68,90 @@ def load_csv_to_bigitemtotal(
         .clip(lower=0.01)
     )
 
+
+# Loading specific datasets
+
+def seed_bigitemtotal():
+    """
+    Run this ONCE after downloading all CSVs locally.
+    Adjust paths & column names to match each dataset.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Make sure table exists
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS bigitemtotal (
+            item_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_name   TEXT NOT NULL,
+            store       TEXT NOT NULL,
+            quantity    INTEGER NOT NULL,
+            price_item  REAL NOT NULL,
+            rating      REAL
+        );
+        """
+    )
+    conn.commit()
+
+# === 1) E-commerce data (carrie1/ecommerce-data) ===
+    # Columns: InvoiceNo, StockCode, Description, Quantity, InvoiceDate, UnitPrice, CustomerID, Country
+    load_csv_to_bigitemtotal(
+        conn,
+        csv_path="data/ecommerce-data.csv",   # <- path where you saved it
+        store_name="Ecommerce",
+        name_col="Description",
+        qty_col="Quantity",
+        price_col="UnitPrice",
+        rating_col=None,
+        encoding="latin1",  # often needed for this dataset
+    )
+
+    # === 2) Amazon Sales Dataset ===
+    # Open it once in a small script or notebook and run: print(df.columns)
+    # Then plug the correct names below — here are COMMON patterns, but you must check:
+    # e.g. 'product_name', 'rating', 'discounted_price', etc.
+    load_csv_to_bigitemtotal(
+        conn,
+        csv_path="data/amazon_sales.csv",
+        store_name="Amazon",
+        name_col="product_name",      # TODO: replace with actual column name
+        qty_col="quantity",           # if there's no quantity, set this to some other col
+        price_col="discounted_price", # or 'actual_price' – depends on dataset
+        rating_col="rating",          # or whatever the rating column is called
+    )
+
+        # === 3) Target Store Dataset ===
+    # This dataset might be store locations, not items. If there's no product info,
+    # you may NOT want to load it into bigitemtotal at all, or you need a different table.
+    # If there IS a product/price table, map it here like the others.
+
+    # Example (ONLY if the CSV actually has these):
+    # load_csv_to_bigitemtotal(
+    #     conn,
+    #     csv_path="data/target_items.csv",
+    #     store_name="Target",
+    #     name_col="product_name",
+    #     qty_col="quantity",
+    #     price_col="unit_price",
+    #     rating_col=None,
+    # )
+
+        # === 4) Walmart Sales (mikhail1681/walmart-sales) ===
+    # Depending on the file, you may have item name + sales; check df.columns.
+    # For pure time series (no item name), this may not belong in bigitemtotal at all.
+    # Example if there IS an item-level file:
+    # load_csv_to_bigitemtotal(
+    #     conn,
+    #     csv_path="data/walmart_items.csv",
+    #     store_name="Walmart",
+    #     name_col="item_name",
+    #     qty_col="quantity",
+    #     price_col="price",
+    #     rating_col=None,
+    # )
+
+    
 # ------------- USER HELPERS ------------- #
 
 def get_unc(fratabase, username):
