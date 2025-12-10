@@ -49,7 +49,30 @@ def clean_catalog_name(name: str, word_limit=6, max_len=40):
 
     return name
 
+# ------------- Remove duplicates ------------- #
+def remove_duplicates(fratabase):
+    """
+    Delete duplicate rows from bigitemtotal, keeping one copy.
+    Two rows are considered duplicates if all of these match:
+    item_name, store, quantity, price_item, rating.
+    """
+    cur = fratabase.cursor()
 
+    # Delete any row whose rowid is NOT the minimum for its exact-value group
+    cur.execute("""
+        DELETE FROM bigitemtotal
+        WHERE rowid NOT IN (
+            SELECT MIN(rowid)
+            FROM bigitemtotal
+            GROUP BY item_name, store, quantity, price_item, rating
+        );
+    """)
+
+    deleted = cur.rowcount  # how many rows were removed
+    fratabase.commit()
+    cur.close()
+
+    print(f"Removed {deleted} exact duplicate rows from bigitemtotal.")
 # ------------- BULK LOADING ------------- #
 
 def load_csv_to_bigitemtotal(
@@ -235,7 +258,7 @@ def seed_bigitemtotal():
     #     price_col="price",
     #     rating_col=None,
     # )
-
+    remove_duplicates(conn)
 if __name__ == "__main__":
     seed_bigitemtotal()
 
