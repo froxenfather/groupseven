@@ -105,7 +105,8 @@ def load_csv_to_bigitemtotal(
         cols.append(qty_col)
     if rating_col is not None and rating_col in df.columns:
         cols.append(rating_col)
-
+    if store_col is not None and store_col in df.columns:
+        cols.append(store_col)   # <-- IMPORTANT
     df = df[cols].copy()
 
     #Rename to internal names
@@ -138,9 +139,6 @@ def load_csv_to_bigitemtotal(
 
 
     df.rename(columns=rename_map, inplace=True)
-
-    #Add store name
-    df["store"] = store_name
 
     #Clean item name
     
@@ -239,7 +237,8 @@ def seed_bigitemtotal():
         name_col="product_name",
         qty_col=None,
         price_col="discounted_price",
-        rating_col="rating",          
+        rating_col="rating",
+        store_col= None,          
     )
 
     # Whole Foods Dataset
@@ -251,16 +250,18 @@ def seed_bigitemtotal():
         qty_col=None,
         price_col="regular",
         rating_col=None,
+        store_col= None,
     )
     # Various Grocery Stores Dataset
     load_csv_to_bigitemtotal(
         conn,
         csv_path="data/grocery_chain_data.csv",
-        store_name="store_name",
+        store_name= None,
         name_col="product_name",
         qty_col="quantity",
         price_col="unit_price",
         rating_col=None,
+        store_col="store_name"
     )
 
         # === 4) Walmart Sales (mikhail1681/walmart-sales) ===
