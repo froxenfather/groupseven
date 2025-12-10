@@ -102,10 +102,10 @@ def purchase(fratabase, user_row, item_name):
     IDX_RATING = 5
 
     # 2. derive cheapest, most expensive, highest rated
-    cheapburger = min(allburgers, key=lambda r: r[IDX_PRICE]) #had to look up lambda functions again lmfao
+    cheapburger = min(allburgers, key=lambda r: r[IDX_PRICE]) # had to look up lambda functions again
     expensiveburger = max(allburgers, key=lambda r: r[IDX_PRICE])
 
-    def rating_or_zero(row): #helper function to avoid none type errors because that was a huge proble
+    def rating_or_zero(row): # helper function to avoid none type errors because that was a huge problem
         return row[IDX_RATING] if row[IDX_RATING] is not None else 0
     #note this doesnt actually set any reviews to zero it just makes it so they are the lowest possible value when comparing for max
 
@@ -117,7 +117,7 @@ def purchase(fratabase, user_row, item_name):
         id_map_main[r[IDX_ID]] = r #map rules dont allow for duplicates thus why im doing this lmao
         #it literally just does all this for me :)
 
-    def print_option(label, row): #helpr function because there are jst so many fucking options
+    def print_option(label, row): #helper function because there are jst so many fucking options
         iid, name, store, qty, price, rating = row
         print(
             f"{label}) ID {iid} | {name} | Store: {store} | " #row was too long man
@@ -128,7 +128,7 @@ def purchase(fratabase, user_row, item_name):
     print_option("1 (cheapest)", cheapburger)
     print_option("2 (most expensive)", expensiveburger)
     print_option("3 (highest rated)", reviewburger)
-    print("4) See ALL matching items") #im out here thrwoing ass
+    print("4) See ALL matching items")
 
     froice = None
 
@@ -141,7 +141,7 @@ def purchase(fratabase, user_row, item_name):
             return
         if choice in {"1", "2", "3"}:
             mapping = {"1": cheapburger, "2": expensiveburger, "3": reviewburger}
-            froice = mapping[choice] #easy way for me to jork it basically make a disctionary
+            froice = mapping[choice] #easy way to make a dictionary
             break
         if choice == "4":
             break
@@ -152,19 +152,19 @@ def purchase(fratabase, user_row, item_name):
         print("\nAll matching items:")
         the_frictionary = {} #map item id to row for easy lookup later
         for row in allburgers: #pretty f print the rest of the rows with f print
-            #might wanna turn this to pandas?
+            # might wanna turn this to pandas?
             iid, name, store, qty, price, rating = row
-            the_frictionary[iid] = row #map the idtem id to the row for easy lookup later
+            the_frictionary[iid] = row # map the idtem id to the row for easy lookup later
             print(f"ID {iid} | {name} | Store: {store} | Qty: {qty} | Price: {price:.2f} | Rating: {rating if rating is not None else 'N/A'}")
 
-        while True: #loop through items
+        while True: # loop through items
             item_id_froice = input("Enter item ID to buy, or 'cancel': ").strip().lower()
             if item_id_froice == "cancel":
                 print("Purchase cancelled.")
-                cur.close() #return to shop cleanly and close cursor bc sqlite can leak memory
+                cur.close() # return to shop cleanly and close cursor bc sqlite can leak memory
                 return
             try:
-                sel_id = int(item_id_froice) #make sure we dont do any weird shit with letters
+                sel_id = int(item_id_froice) #make sure we dont do anything weird with letters
             except ValueError:
                 print("Not a valid integer ID.")
                 continue
@@ -209,7 +209,7 @@ def purchase(fratabase, user_row, item_name):
     row = cur.fetchone()
     if row is None:
         print("Error: user not found when checking balance.")
-        cur.close() #allah must intervene for this edge case to trigger
+        cur.close() # rare edge case
         return
 
     current_balance = float(row[0])
@@ -224,27 +224,27 @@ def purchase(fratabase, user_row, item_name):
 
     confirm = input("Proceed with purchase? (y/n): ").strip().lower()
     if confirm not in {"y", "yes"}:
-        print("Purchase cancelled.") #im edging
+        print("Purchase cancelled.")
         cur.close()
         return
 
-    new_balance = current_balance - total_burger #causes errors somtimes might make float
+    new_balance = current_balance - total_burger
 
     # 7. commit changes: update balance, stock, insert purchase
     try:
-        #okay so we update user balance
+        # update user balance
         cur.execute(
             "UPDATE users_tables SET balance = ? WHERE id = ?;",
             (new_balance, user_id),
         )
 
-        #then we update stock
+        # then update stock
         cur.execute(
             "UPDATE bigitemtotal SET quantity = quantity - ? WHERE item_id = ?;",
             (qty, item_id),
         )
 
-        #and FINALLY insert into purchases
+        # and finally insert into purchases
         cur.execute(
             """
             INSERT INTO purchases (user_id, item_id, quantity, final_price)
@@ -263,8 +263,6 @@ def purchase(fratabase, user_row, item_name):
     finally:
         cur.close() #do not forget to do ts
 
-    #this program honestly took me the beter half of yesterday to write ngl
-    #most of it was just strIGHT edge cases
     
 
 # ------------------------------------------------------------- SEARCH FRENGINE --------------------------------------------------------------- #
@@ -481,14 +479,11 @@ def refund(fratabase, user_row):
         print(f"\nUser '{username}' has no purchases to refund.\n")
         return
 
-
-    #the next four lines might have been shamelessly generated by chatgpt
-    #i really must learn to use pd.df more often
     print(f"\nRecent purchases for {username}:")
     print("ID | Item              | Qty | Total   | When")
     print("---+-------------------+-----+---------+---------------------")
     for pid, item_id, item_name, qty, total, ts in rows:
-        print(f"{pid:<3} | {item_name[:19]:<19} | {qty:>3} | {float(total):>7.2f} | {ts}") #syntax sugar, thank you chatgpt
+        print(f"{pid:<3} | {item_name[:19]:<19} | {qty:>3} | {float(total):>7.2f} | {ts}") # syntax sugar
 
     #choose which purchase to refund
     while True:
@@ -603,7 +598,7 @@ def admin_refund(fratabase):
 
 
 # ------------------------------------------------------------- SETTINGS --------------------------------------------------------------- #
-def settings(fratabase, user_row): #done i think
+def settings(fratabase, user_row): # finished
     #Show settings menu for changing username/password.
     user_id, admin_level, first_name, last_name, username, password, balance = user_row
     print(f"\n=== Settings for {username} ===")
@@ -700,7 +695,6 @@ def user_change_password(fratabase, user_row):
     finally:
         cur.close()
 
-    #call me john copy and paste
 
 
 
@@ -806,7 +800,6 @@ def admin_panel(fratabase, user_row):
             print("Invalid choice, try again.")
 
 def big_button(conn):
-    # this shit is almost directly copied from this cool ass template online i found
     choice = input("Print everything EXCEPT bigitemtotal? (Y/N): ").strip().lower()
 
     # Get list of all user tables from SQLite
@@ -1124,7 +1117,7 @@ def main():
         user_row = get_unc(fratabase, username)
 
         if user_row is None:
-            # user not found, pormpt to make one
+            # user not found, prompt to make one
             print(f"\nUser '{username}' not found.")
             create_choice = input("Do you want to create a new account with this username? (y/n): ").strip().lower()
 
@@ -1135,7 +1128,7 @@ def main():
                 last_name = input("Last Name: ").strip()
                 new_user = create_user(fratabase, first_name, last_name, username, password)
                 print(f"Account created successfully. Welcome, {username}!")
-                #grab this man
+                # grab use row
                 user_row = get_unc(fratabase, username)
                 # Non-admin goes directly to shop
                 user_mode(fratabase, user_row)

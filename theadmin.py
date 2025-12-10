@@ -264,19 +264,6 @@ def seed_bigitemtotal():
         store_col="store_name"
     )
 
-        # === 4) Walmart Sales (mikhail1681/walmart-sales) ===
-    # Depending on the file, you may have item name + sales; check df.columns.
-    # For pure time series (no item name), this may not belong in bigitemtotal at all.
-    # Example if there IS an item-level file:
-    # load_csv_to_bigitemtotal(
-    #     conn,
-    #     csv_path="data/walmart_items.csv",
-    #     store_name="Walmart",
-    #     name_col="item_name",
-    #     qty_col="quantity",
-    #     price_col="price",
-    #     rating_col=None,
-    # )
     remove_duplicates(conn)
 if __name__ == "__main__":
     seed_bigitemtotal()
