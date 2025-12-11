@@ -214,12 +214,10 @@ def seed_bigitemtotal():
 
     conn.commit()
 
-    # Ecommerce data
-    # Columns: InvoiceNo, StockCode, Description, Quantity, InvoiceDate, UnitPrice, CustomerID, Country
-
+    # Ecommerce Dataset
     load_csv_to_bigitemtotal(
         conn,
-        csv_path="data/ecommerce_data.csv",   # <- path where you saved it
+        csv_path="data/ecommerce_data.csv",
         store_name="Ecommerce",
         name_col="Description",
         qty_col="Quantity",
@@ -229,7 +227,6 @@ def seed_bigitemtotal():
     )
 
     # Amazon Sales Dataset
-
     load_csv_to_bigitemtotal(
         conn,
         csv_path="data/amazon.csv",
