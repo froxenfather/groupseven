@@ -65,7 +65,6 @@ def purchase(fratabase, user_row, item_name):
     - ask for quantity
     - check stock and user balance
     - insert into purchases, update stock, subtract from user
-    - kill myself over the genuine fifty edge cases
     """
     user_id, admin_level, first_name, last_name, username, password, balance = user_row
 
@@ -117,7 +116,7 @@ def purchase(fratabase, user_row, item_name):
         id_map_main[r[IDX_ID]] = r #map rules dont allow for duplicates thus why im doing this lmao
         #it literally just does all this for me :)
 
-    def print_option(label, row): #helper function because there are jst so many fucking options
+    def print_option(label, row): #helper function because there are many options
         iid, name, store, qty, price, rating = row
         print(
             f"{label}) ID {iid} | {name} | Store: {store} | " #row was too long man
